@@ -76,7 +76,17 @@ src/
 
 ## Screenshots / 截图
 
-<!-- 可以在这里添加应用截图 -->
+| 概览仪表盘 | 记账 |
+|:---:|:---:|
+| ![Dashboard](screenshots/dashboard.png) | ![Add Transaction](screenshots/add-transaction.png) |
+
+| 账单列表 | 统计报表 |
+|:---:|:---:|
+| ![Transaction List](screenshots/transaction-list.png) | ![Statistics](screenshots/statistics.png) |
+
+| 账单导入 | 分类管理 |
+|:---:|:---:|
+| ![Import](screenshots/import.png) | ![Category Manager](screenshots/category-manager.png) |
 
 ## License / 许可证
 
