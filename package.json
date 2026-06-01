@@ -1,0 +1,56 @@
+{
+  "name": "personal-finance",
+  "version": "1.0.0",
+  "description": "个人记账软件",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "pack": "electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --dir",
+    "deploy": "npm run pack && rm -rf /Applications/个人记账.app && cp -R release/mac-arm64/个人记账.app /Applications/ && codesign --force --deep --sign - /Applications/个人记账.app && xattr -cr /Applications/个人记账.app && echo '✅ 已安装到 /Applications/个人记账.app'",
+    "dist": "electron-vite build && electron-builder --mac",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.personal-finance.app",
+    "productName": "个人记账",
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": "dir",
+      "icon": "build/icon.icns"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "node_modules/**/*"
+    ]
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.6.1",
+    "antd": "^5.24.0",
+    "dayjs": "^1.11.13",
+    "exceljs": "^4.4.0",
+    "iconv-lite": "^0.7.2",
+    "recharts": "^2.15.0",
+    "sql.js": "^1.12.0",
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@electron/packager": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}
