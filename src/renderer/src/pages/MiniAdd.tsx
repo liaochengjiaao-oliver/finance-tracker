@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Form, InputNumber, Select, Input, Button, Radio, message } from 'antd'
 import dayjs from 'dayjs'
+import { useLocale } from '../i18n'
 
 export default function MiniAdd(): JSX.Element {
+  const { t, tc } = useLocale()
   const [form] = Form.useForm()
   const [categories, setCategories] = useState<Category[]>([])
   const [type, setType] = useState<'expense' | 'income'>('expense')
@@ -26,7 +28,7 @@ export default function MiniAdd(): JSX.Element {
         date: dayjs().format('YYYY-MM-DD'),
         note: values.note || ''
       })
-      message.success('记账成功')
+      message.success(t('add.success'))
       setTimeout(() => window.api.closeMiniWindow(), 500)
     } finally {
       setLoading(false)
@@ -49,10 +51,10 @@ export default function MiniAdd(): JSX.Element {
           paddingTop: 4
         }}
       >
-        快速记账
+        {t('mini.title')}
       </div>
       <Form form={form} layout="vertical" onFinish={handleSubmit} size="middle">
-        <Form.Item label="类型">
+        <Form.Item label={t('common.type')}>
           <Radio.Group
             value={type}
             onChange={(e) => {
@@ -61,15 +63,15 @@ export default function MiniAdd(): JSX.Element {
             }}
             style={{ width: '100%' }}
           >
-            <Radio.Button value="expense" style={{ width: '50%', textAlign: 'center' }}>支出</Radio.Button>
-            <Radio.Button value="income" style={{ width: '50%', textAlign: 'center' }}>收入</Radio.Button>
+            <Radio.Button value="expense" style={{ width: '50%', textAlign: 'center' }}>{t('common.expense')}</Radio.Button>
+            <Radio.Button value="income" style={{ width: '50%', textAlign: 'center' }}>{t('common.income')}</Radio.Button>
           </Radio.Group>
         </Form.Item>
 
         <Form.Item
           name="amount"
-          label="金额"
-          rules={[{ required: true, message: '请输入金额' }]}
+          label={t('common.amount')}
+          rules={[{ required: true, message: t('common.enterAmount') }]}
         >
           <InputNumber
             prefix="¥"
@@ -85,24 +87,24 @@ export default function MiniAdd(): JSX.Element {
 
         <Form.Item
           name="category_id"
-          label="分类"
-          rules={[{ required: true, message: '请选择分类' }]}
+          label={t('common.category')}
+          rules={[{ required: true, message: t('add.selectCategory') }]}
         >
-          <Select placeholder="选择分类">
+          <Select placeholder={t('common.selectCategory')}>
             {filteredCategories.map((c) => (
-              <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>
+              <Select.Option key={c.id} value={c.id}>{tc(c.name)}</Select.Option>
             ))}
           </Select>
         </Form.Item>
 
-        <Form.Item name="note" label="备注">
-          <Input placeholder="可选" maxLength={200} />
+        <Form.Item name="note" label={t('common.note')}>
+          <Input placeholder={t('common.optional')} maxLength={200} />
         </Form.Item>
 
         <Form.Item style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            <Button onClick={handleCancel} style={{ flex: 1 }}>取消</Button>
-            <Button type="primary" htmlType="submit" loading={loading} style={{ flex: 1 }}>保存</Button>
+            <Button onClick={handleCancel} style={{ flex: 1 }}>{t('common.cancel')}</Button>
+            <Button type="primary" htmlType="submit" loading={loading} style={{ flex: 1 }}>{t('common.save')}</Button>
           </div>
         </Form.Item>
       </Form>

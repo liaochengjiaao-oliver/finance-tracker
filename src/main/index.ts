@@ -7,7 +7,8 @@ import { readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {
   initUserConfig, initDatabase, getDatabase, saveDatabase, switchUser,
-  listUsers, createUser, deleteUser, updateUser, getCurrentUser, getCurrentUserId, getDbPath
+  listUsers, createUser, deleteUser, updateUser, getCurrentUser, getCurrentUserId, getDbPath,
+  getLocale, setLocale
 } from './database'
 import * as iconv from 'iconv-lite'
 import * as XLSX from 'xlsx'
@@ -290,6 +291,12 @@ function registerIpcHandlers(): void {
     BrowserWindow.getAllWindows().forEach((win) => {
       win.webContents.send('theme:changed', theme)
     })
+  })
+
+  // --- Locale ---
+  ipcMain.handle('locale:get', () => getLocale())
+  ipcMain.handle('locale:set', (_event, locale: string) => {
+    setLocale(locale)
   })
 
   // --- Mini window ---
@@ -1033,10 +1040,11 @@ function registerIpcHandlers(): void {
 
   // --- Import ---
   ipcMain.handle('import:select-file', async () => {
+    const locale = getLocale()
     const result = await dialog.showOpenDialog({
-      title: '选择账单文件',
+      title: locale === 'en' ? 'Select Bill File' : '选择账单文件',
       filters: [
-        { name: '账单文件', extensions: ['csv', 'xlsx', 'xls'] }
+        { name: locale === 'en' ? 'Bill Files' : '账单文件', extensions: ['csv', 'xlsx', 'xls'] }
       ],
       properties: ['openFile']
     })
@@ -1062,7 +1070,7 @@ function registerIpcHandlers(): void {
     } else if (ext === 'xlsx' || ext === 'xls') {
       result = parseWechatXLSX(filePath, categories)
     } else {
-      throw new Error('不支持的文件格式，请选择 .csv 或 .xlsx 文件')
+      throw new Error('Unsupported format / 不支持的文件格式 (.csv / .xlsx)')
     }
 
     // Check duplicates
@@ -1075,7 +1083,7 @@ function registerIpcHandlers(): void {
       ) as { id: number; note: string; category_name: string } | undefined
       if (existing) {
         item.duplicate = true
-        item.duplicateNote = `已有记录：[${existing.category_name || '未分类'}] ${existing.note || ''}`
+        item.duplicateNote = `[${existing.category_name || '-'}] ${existing.note || ''}`
       }
     }
 
@@ -1169,6 +1177,77 @@ function registerIpcHandlers(): void {
     const userId = getCurrentUserId()
     if (userId) await switchUser(userId)
     return { success: true }
+  })
+
+  // --- Investment ---
+  ipcMain.handle('investment:create', (_event, data: {
+    type: string; amount: number; date: string; note: string
+  }) => {
+    const now = new Date().toISOString()
+    runSql(
+      'INSERT INTO investment_records (type, amount, date, note, created_at) VALUES (?, ?, ?, ?, ?)',
+      [data.type, data.amount, data.date, data.note || '', now]
+    )
+    return getLastInsertId()
+  })
+
+  ipcMain.handle('investment:list', (_event, filters: {
+    limit?: number; offset?: number
+  }) => {
+    const limit = filters.limit || 50
+    const offset = filters.offset || 0
+    const data = queryAll(
+      'SELECT * FROM investment_records ORDER BY date DESC, id DESC LIMIT ? OFFSET ?',
+      [limit, offset]
+    )
+    const countRow = queryOne('SELECT COUNT(*) as total FROM investment_records')
+    return { data, total: (countRow?.total as number) || 0 }
+  })
+
+  ipcMain.handle('investment:delete', (_event, id: number) => {
+    runSql('DELETE FROM investment_records WHERE id = ?', [id])
+  })
+
+  ipcMain.handle('investment:summary', () => {
+    const depositRow = queryOne(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM investment_records WHERE type = 'deposit'"
+    )
+    const withdrawRow = queryOne(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM investment_records WHERE type = 'withdraw'"
+    )
+    const profitRow = queryOne(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM investment_records WHERE type = 'profit'"
+    )
+
+    const totalDeposit = (depositRow?.total as number) || 0
+    const totalWithdraw = (withdrawRow?.total as number) || 0
+    const totalProfit = (profitRow?.total as number) || 0
+    const currentPrincipal = totalDeposit - totalWithdraw
+    const totalAssets = currentPrincipal + totalProfit
+
+    const monthlyRows = queryAll(`
+      SELECT strftime('%Y-%m', date) as month,
+        COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) as deposit,
+        COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as withdraw,
+        COALESCE(SUM(CASE WHEN type = 'profit' THEN amount ELSE 0 END), 0) as profit
+      FROM investment_records
+      GROUP BY strftime('%Y-%m', date)
+      ORDER BY month ASC
+    `)
+
+    let runningPrincipal = 0
+    const monthly = monthlyRows.map((r) => {
+      runningPrincipal += (r.deposit as number) - (r.withdraw as number)
+      return {
+        month: r.month as string,
+        deposit: r.deposit as number,
+        withdraw: r.withdraw as number,
+        profit: r.profit as number,
+        principal: runningPrincipal
+      }
+    })
+
+    return { totalDeposit, totalWithdraw, totalProfit, currentPrincipal, totalAssets, monthly }
   })
 }
 

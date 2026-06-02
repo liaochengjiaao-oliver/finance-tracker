@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Form, InputNumber, Select, DatePicker, Input, Button, Radio, message, Card, Space } from 'antd'
 import dayjs from 'dayjs'
+import { useLocale } from '../i18n'
 
 export default function AddTransaction(): JSX.Element {
+  const { t, tc } = useLocale()
   const [form] = Form.useForm()
   const [categories, setCategories] = useState<Category[]>([])
   const [type, setType] = useState<'expense' | 'income'>('expense')
@@ -36,7 +38,7 @@ export default function AddTransaction(): JSX.Element {
         date: values.date.format('YYYY-MM-DD'),
         note: values.note || ''
       })
-      message.success('记账成功')
+      message.success(t('add.success'))
       form.resetFields()
       form.setFieldValue('date', dayjs())
     } finally {
@@ -46,7 +48,7 @@ export default function AddTransaction(): JSX.Element {
 
   return (
     <div>
-      <div className="page-header"><h2>记一笔</h2></div>
+      <div className="page-header"><h2>{t('add.title')}</h2></div>
       <Card style={{ maxWidth: 500 }}>
         <Form
           form={form}
@@ -54,11 +56,11 @@ export default function AddTransaction(): JSX.Element {
           initialValues={{ date: dayjs() }}
           onFinish={handleSubmit}
         >
-          <Form.Item label="类型">
+          <Form.Item label={t('common.type')}>
             <Space>
               <Radio.Group value={type} onChange={(e) => handleTypeChange(e.target.value)}>
-                <Radio.Button value="expense" style={{ width: 80, textAlign: 'center' }}>支出</Radio.Button>
-                <Radio.Button value="income" style={{ width: 80, textAlign: 'center' }}>收入</Radio.Button>
+                <Radio.Button value="expense" style={{ width: 80, textAlign: 'center' }}>{t('common.expense')}</Radio.Button>
+                <Radio.Button value="income" style={{ width: 80, textAlign: 'center' }}>{t('common.income')}</Radio.Button>
               </Radio.Group>
               <Select value={currency} onChange={setCurrency} style={{ width: 90 }}>
                 <Select.Option value="CNY">¥ CNY</Select.Option>
@@ -69,8 +71,8 @@ export default function AddTransaction(): JSX.Element {
 
           <Form.Item
             name="amount"
-            label="金额"
-            rules={[{ required: true, message: '请输入金额' }]}
+            label={t('common.amount')}
+            rules={[{ required: true, message: t('common.enterAmount') }]}
           >
             <InputNumber
               prefix={currency === 'USD' ? '$' : '¥'}
@@ -85,31 +87,31 @@ export default function AddTransaction(): JSX.Element {
 
           <Form.Item
             name="category_id"
-            label="分类"
-            rules={[{ required: true, message: '请选择分类' }]}
+            label={t('common.category')}
+            rules={[{ required: true, message: t('add.selectCategory') }]}
           >
-            <Select placeholder="选择分类">
+            <Select placeholder={t('common.selectCategory')}>
               {filteredCategories.map((c) => (
-                <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>
+                <Select.Option key={c.id} value={c.id}>{tc(c.name)}</Select.Option>
               ))}
             </Select>
           </Form.Item>
 
           <Form.Item
             name="date"
-            label="日期"
-            rules={[{ required: true, message: '请选择日期' }]}
+            label={t('common.date')}
+            rules={[{ required: true, message: t('common.selectDate') }]}
           >
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
 
-          <Form.Item name="note" label="备注">
-            <Input.TextArea rows={2} placeholder="可选" maxLength={200} showCount />
+          <Form.Item name="note" label={t('common.note')}>
+            <Input.TextArea rows={2} placeholder={t('common.optional')} maxLength={200} showCount />
           </Form.Item>
 
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={loading} block size="large">
-              保存
+              {t('common.save')}
             </Button>
           </Form.Item>
         </Form>

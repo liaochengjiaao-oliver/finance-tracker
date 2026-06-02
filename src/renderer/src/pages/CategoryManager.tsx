@@ -4,8 +4,10 @@ import {
   PlusOutlined, EditOutlined, DeleteOutlined,
   CloudDownloadOutlined, CloudUploadOutlined
 } from '@ant-design/icons'
+import { useLocale } from '../i18n'
 
 export default function CategoryManager(): JSX.Element {
+  const { t, tc } = useLocale()
   const [categories, setCategories] = useState<Category[]>([])
   const [modal, setModal] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
@@ -34,10 +36,10 @@ export default function CategoryManager(): JSX.Element {
   const handleSubmit = async (values: { name: string; type: string }): Promise<void> => {
     if (editId) {
       await window.api.updateCategory(editId, { name: values.name })
-      message.success('已更新')
+      message.success(t('category.updated'))
     } else {
       await window.api.createCategory(values)
-      message.success('已添加')
+      message.success(t('category.added'))
     }
     setModal(false)
     loadCategories()
@@ -46,7 +48,7 @@ export default function CategoryManager(): JSX.Element {
   const handleDelete = async (id: number): Promise<void> => {
     const result = await window.api.deleteCategory(id)
     if (result.success) {
-      message.success('已删除')
+      message.success(t('category.deleted'))
       loadCategories()
     } else {
       message.warning(result.message)
@@ -58,28 +60,28 @@ export default function CategoryManager(): JSX.Element {
 
   const columns = [
     {
-      title: '名称',
+      title: t('common.name'),
       dataIndex: 'name',
       render: (name: string, record: Category) => (
         <Space>
-          {name}
-          {record.is_default ? <Tag color="blue">预设</Tag> : null}
+          {tc(name)}
+          {record.is_default ? <Tag color="blue">{t('category.preset')}</Tag> : null}
         </Space>
       )
     },
-    { title: '排序', dataIndex: 'sort_order', width: 80 },
+    { title: t('common.sort'), dataIndex: 'sort_order', width: 80 },
     {
-      title: '操作',
+      title: t('common.operation'),
       width: 120,
       render: (_: unknown, record: Category) => (
         <Space size="small">
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
           <Popconfirm
-            title="确认删除此分类？"
-            description="已有记录的分类无法删除"
+            title={t('category.confirmDeleteCategory')}
+            description={t('category.deleteHint')}
             onConfirm={() => handleDelete(record.id)}
-            okText="删除"
-            cancelText="取消"
+            okText={t('common.delete')}
+            cancelText={t('common.cancel')}
           >
             <Button type="link" size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
@@ -91,12 +93,12 @@ export default function CategoryManager(): JSX.Element {
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>分类管理</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>添加分类</Button>
+        <h2>{t('category.title')}</h2>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t('category.addCategory')}</Button>
       </div>
 
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <Card title="支出分类" size="small">
+        <Card title={t('category.expenseCategory')} size="small">
           <Table
             dataSource={expenseCategories}
             columns={columns}
@@ -106,7 +108,7 @@ export default function CategoryManager(): JSX.Element {
           />
         </Card>
 
-        <Card title="收入分类" size="small">
+        <Card title={t('category.incomeCategory')} size="small">
           <Table
             dataSource={incomeCategories}
             columns={columns}
@@ -115,40 +117,40 @@ export default function CategoryManager(): JSX.Element {
             size="small"
           />
         </Card>
-        <Card title="数据管理" size="small">
+        <Card title={t('category.dataManage')} size="small">
           <Space>
             <Button
               icon={<CloudDownloadOutlined />}
               onClick={async () => {
                 const result = await window.api.backupExport()
-                if (result.success) message.success('备份成功')
+                if (result.success) message.success(t('category.backupSuccess'))
               }}
             >
-              备份数据
+              {t('category.backup')}
             </Button>
             <Popconfirm
-              title="恢复数据将覆盖当前所有数据，确认继续？"
-              okText="确认恢复"
-              cancelText="取消"
+              title={t('category.restoreConfirm')}
+              okText={t('category.confirmRestore')}
+              cancelText={t('common.cancel')}
               okButtonProps={{ danger: true }}
               onConfirm={async () => {
                 const result = await window.api.backupImport()
                 if (result.success) {
-                  message.success('恢复成功，数据已更新')
+                  message.success(t('category.restoreSuccess'))
                   loadCategories()
                 } else if (result.message) {
                   message.error(result.message)
                 }
               }}
             >
-              <Button icon={<CloudUploadOutlined />} danger>恢复数据</Button>
+              <Button icon={<CloudUploadOutlined />} danger>{t('category.restore')}</Button>
             </Popconfirm>
           </Space>
         </Card>
       </Space>
 
       <Modal
-        title={editId ? '编辑分类' : '添加分类'}
+        title={editId ? t('category.editCategory') : t('category.addCategory')}
         open={modal}
         onCancel={() => setModal(false)}
         footer={null}
@@ -156,19 +158,19 @@ export default function CategoryManager(): JSX.Element {
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           {!editId && (
-            <Form.Item name="type" label="类型" rules={[{ required: true }]}>
+            <Form.Item name="type" label={t('common.type')} rules={[{ required: true }]}>
               <Radio.Group>
-                <Radio.Button value="expense">支出</Radio.Button>
-                <Radio.Button value="income">收入</Radio.Button>
+                <Radio.Button value="expense">{t('common.expense')}</Radio.Button>
+                <Radio.Button value="income">{t('common.income')}</Radio.Button>
               </Radio.Group>
             </Form.Item>
           )}
-          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入分类名称' }]}>
-            <Input placeholder="分类名称" maxLength={20} />
+          <Form.Item name="name" label={t('common.name')} rules={[{ required: true, message: t('category.enterName') }]}>
+            <Input placeholder={t('category.categoryName')} maxLength={20} />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
-              {editId ? '保存修改' : '添加'}
+              {editId ? t('category.saveEdit') : t('common.add')}
             </Button>
           </Form.Item>
         </Form>

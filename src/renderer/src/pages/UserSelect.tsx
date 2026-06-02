@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Input, Modal, message, Popconfirm, Empty } from 'antd'
 import { PlusOutlined, DeleteOutlined, EditOutlined, UserOutlined } from '@ant-design/icons'
+import { useLocale } from '../i18n'
 
 interface UserProfile {
   id: string
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function UserSelect({ onLogin }: Props): JSX.Element {
+  const { t } = useLocale()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [createModalOpen, setCreateModalOpen] = useState(false)
@@ -45,7 +47,7 @@ export default function UserSelect({ onLogin }: Props): JSX.Element {
   const handleCreateUser = async (): Promise<void> => {
     const name = newName.trim()
     if (!name) {
-      message.warning('请输入用户名')
+      message.warning(t('user.usernameRequired'))
       return
     }
     await window.api.createUser(name)
@@ -60,21 +62,21 @@ export default function UserSelect({ onLogin }: Props): JSX.Element {
       message.error(result.message)
       return
     }
-    message.success('已删除')
+    message.success(t('category.deleted'))
     loadUsers()
   }
 
   const handleRename = async (): Promise<void> => {
     const name = renameName.trim()
     if (!name || !renameTarget) {
-      message.warning('请输入用户名')
+      message.warning(t('user.usernameRequired'))
       return
     }
     await window.api.updateUser(renameTarget.id, { name })
     setRenameModalOpen(false)
     setRenameTarget(null)
     setRenameName('')
-    message.success('已修改')
+    message.success(t('user.renamed'))
     loadUsers()
   }
 
@@ -94,13 +96,13 @@ export default function UserSelect({ onLogin }: Props): JSX.Element {
     <div className="user-select-page">
       <div className="user-select-container">
         <div className="user-select-title">
-          <h1>选择用户</h1>
-          <p>选择一个用户开始记账，或创建新用户</p>
+          <h1>{t('user.selectTitle')}</h1>
+          <p>{t('user.selectHint')}</p>
         </div>
 
         {users.length === 0 ? (
           <div className="user-select-empty">
-            <Empty description="还没有用户，创建一个开始吧" />
+            <Empty description={t('user.noUsers')} />
           </div>
         ) : (
           <div className="user-select-grid">
@@ -127,15 +129,15 @@ export default function UserSelect({ onLogin }: Props): JSX.Element {
                   />
                   {users.length > 1 && (
                     <Popconfirm
-                      title="确定删除该用户？"
-                      description="该用户的所有记账数据将被永久删除"
+                      title={t('user.confirmDelete')}
+                      description={t('user.deleteHint')}
                       onConfirm={(e) => {
                         e?.stopPropagation()
                         handleDeleteUser(user.id)
                       }}
                       onCancel={(e) => e?.stopPropagation()}
-                      okText="删除"
-                      cancelText="取消"
+                      okText={t('common.delete')}
+                      cancelText={t('common.cancel')}
                       okButtonProps={{ danger: true }}
                     >
                       <Button
@@ -161,21 +163,21 @@ export default function UserSelect({ onLogin }: Props): JSX.Element {
             size="large"
             onClick={() => setCreateModalOpen(true)}
           >
-            新建用户
+            {t('user.createUser')}
           </Button>
         </div>
       </div>
 
       <Modal
-        title="新建用户"
+        title={t('user.createUser')}
         open={createModalOpen}
         onOk={handleCreateUser}
         onCancel={() => { setCreateModalOpen(false); setNewName('') }}
-        okText="创建并登录"
-        cancelText="取消"
+        okText={t('user.createAndLogin')}
+        cancelText={t('common.cancel')}
       >
         <Input
-          placeholder="输入用户名"
+          placeholder={t('user.enterUsername')}
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onPressEnter={handleCreateUser}
@@ -186,15 +188,15 @@ export default function UserSelect({ onLogin }: Props): JSX.Element {
       </Modal>
 
       <Modal
-        title="修改用户名"
+        title={t('user.renameUser')}
         open={renameModalOpen}
         onOk={handleRename}
         onCancel={() => { setRenameModalOpen(false); setRenameTarget(null); setRenameName('') }}
-        okText="保存"
-        cancelText="取消"
+        okText={t('common.save')}
+        cancelText={t('common.cancel')}
       >
         <Input
-          placeholder="输入新用户名"
+          placeholder={t('user.enterNewUsername')}
           value={renameName}
           onChange={(e) => setRenameName(e.target.value)}
           onPressEnter={handleRename}

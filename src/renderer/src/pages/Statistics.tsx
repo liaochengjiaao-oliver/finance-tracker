@@ -7,6 +7,7 @@ import {
   BarChart, Bar
 } from 'recharts'
 import dayjs from 'dayjs'
+import { useLocale } from '../i18n'
 
 const COLORS = [
   '#1677ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1',
@@ -14,6 +15,7 @@ const COLORS = [
 ]
 
 export default function Statistics(): JSX.Element {
+  const { t, tc } = useLocale()
   const [month, setMonth] = useState(dayjs())
   const [stats, setStats] = useState<MonthlyStats | null>(null)
   const [trendData, setTrendData] = useState<TrendItem[]>([])
@@ -70,26 +72,26 @@ export default function Statistics(): JSX.Element {
 
   const categoryData = stats?.byCategory
     .filter((c) => c.type === categoryView)
-    .map((c) => ({ name: c.name, value: c.total })) ?? []
+    .map((c) => ({ name: tc(c.name), value: c.total })) ?? []
 
   const totalCategoryAmount = categoryData.reduce((sum, c) => sum + c.value, 0)
 
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>统计报表</h2>
+        <h2>{t('stats.title')}</h2>
         <Space>
           <Dropdown menu={{ items: [
-            { key: 'excel', label: '导出月度 Excel 报告', onClick: async () => {
+            { key: 'excel', label: t('stats.exportExcel'), onClick: async () => {
               const result = await window.api.exportMonthlyReport(month.year(), month.month() + 1)
-              if (result.success) message.success('月度 Excel 报告已导出')
+              if (result.success) message.success(t('stats.excelSuccess'))
             }},
-            { key: 'pdf', label: '导出月度 PDF 报告', onClick: async () => {
+            { key: 'pdf', label: t('stats.exportPdf'), onClick: async () => {
               const result = await window.api.exportMonthlyPdf(month.year(), month.month() + 1)
-              if (result.success) message.success('月度 PDF 报告已导出')
+              if (result.success) message.success(t('stats.pdfSuccess'))
             }}
           ]}}>
-            <Button size="small" icon={<ExportOutlined />}>导出报告</Button>
+            <Button size="small" icon={<ExportOutlined />}>{t('stats.exportReport')}</Button>
           </Dropdown>
           <DatePicker
             picker="month"
@@ -103,12 +105,12 @@ export default function Statistics(): JSX.Element {
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={12}>
           <Card
-            title="分类占比"
+            title={t('stats.categoryRatio')}
             size="small"
             extra={
               <Radio.Group size="small" value={categoryView} onChange={(e) => setCategoryView(e.target.value)}>
-                <Radio.Button value="expense">支出</Radio.Button>
-                <Radio.Button value="income">收入</Radio.Button>
+                <Radio.Button value="expense">{t('common.expense')}</Radio.Button>
+                <Radio.Button value="income">{t('common.income')}</Radio.Button>
               </Radio.Group>
             }
           >
@@ -128,17 +130,17 @@ export default function Statistics(): JSX.Element {
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number) => `¥${v.toFixed(2)}`} />
+                  <Tooltip formatter={(v: number) => [`¥${v.toFixed(2)} (${(v / totalCategoryAmount * 100).toFixed(1)}%)`]} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <Empty description="暂无数据" style={{ height: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }} />
+              <Empty description={t('common.noData')} style={{ height: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }} />
             )}
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="分类排名" size="small">
+          <Card title={t('stats.categoryRank')} size="small">
             {categoryData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={categoryData} layout="vertical" margin={{ left: 40 }}>
@@ -150,21 +152,21 @@ export default function Statistics(): JSX.Element {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <Empty description="暂无数据" style={{ height: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }} />
+              <Empty description={t('common.noData')} style={{ height: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }} />
             )}
           </Card>
         </Col>
       </Row>
 
       <Card
-        title="收支趋势"
+        title={t('stats.trend')}
         size="small"
         extra={
           <Radio.Group size="small" value={granularity} onChange={(e) => setGranularity(e.target.value)}>
-            <Radio.Button value="daily">按日</Radio.Button>
-            <Radio.Button value="weekly">按周</Radio.Button>
-            <Radio.Button value="monthly">按月</Radio.Button>
-            <Radio.Button value="yearly">按年</Radio.Button>
+            <Radio.Button value="daily">{t('stats.daily')}</Radio.Button>
+            <Radio.Button value="weekly">{t('stats.weekly')}</Radio.Button>
+            <Radio.Button value="monthly">{t('stats.monthly')}</Radio.Button>
+            <Radio.Button value="yearly">{t('stats.yearly')}</Radio.Button>
           </Radio.Group>
         }
       >
@@ -176,33 +178,33 @@ export default function Statistics(): JSX.Element {
               <YAxis tickFormatter={(v) => `¥${v}`} />
               <Tooltip formatter={(v: number) => `¥${v.toFixed(2)}`} />
               <Legend />
-              <Line type="monotone" dataKey="income" name="收入" stroke="#52c41a" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="expense" name="支出" stroke="#ff4d4f" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="income" name={t('common.income')} stroke="#52c41a" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="expense" name={t('common.expense')} stroke="#ff4d4f" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <Empty description="暂无数据" style={{ height: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }} />
+          <Empty description={t('common.noData')} style={{ height: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }} />
         )}
       </Card>
       <Card
-        title="分类趋势"
+        title={t('stats.categoryTrend')}
         size="small"
         style={{ marginTop: 16 }}
         extra={
           <Space>
             <Select
               size="small"
-              placeholder="选择分类"
+              placeholder={t('stats.selectCategory')}
               style={{ width: 140 }}
               value={trendCategoryId}
               onChange={setTrendCategoryId}
-              options={categories.map((c) => ({ label: `${c.name}（${c.type === 'expense' ? '支出' : '收入'}）`, value: c.id }))}
+              options={categories.map((c) => ({ label: `${tc(c.name)}（${c.type === 'expense' ? t('common.expense') : t('common.income')}）`, value: c.id }))}
               showSearch
               optionFilterProp="label"
             />
             <Radio.Group size="small" value={trendRange} onChange={(e) => setTrendRange(e.target.value)}>
-              <Radio.Button value="6m">近6月</Radio.Button>
-              <Radio.Button value="1y">今年</Radio.Button>
+              <Radio.Button value="6m">{t('stats.last6m')}</Radio.Button>
+              <Radio.Button value="1y">{t('stats.thisYear')}</Radio.Button>
             </Radio.Group>
           </Space>
         }
@@ -214,11 +216,11 @@ export default function Statistics(): JSX.Element {
               <XAxis dataKey="period" />
               <YAxis tickFormatter={(v) => `¥${v}`} />
               <Tooltip formatter={(v: number) => `¥${v.toFixed(2)}`} />
-              <Bar dataKey="amount" name="金额" fill="#1677ff" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="amount" name={t('common.amount')} fill="#1677ff" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <Empty description={trendCategoryId ? '暂无数据' : '请选择一个分类'} style={{ height: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }} />
+          <Empty description={trendCategoryId ? t('common.noData') : t('stats.selectCategoryHint')} style={{ height: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }} />
         )}
       </Card>
     </div>

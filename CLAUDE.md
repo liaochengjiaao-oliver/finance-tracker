@@ -38,6 +38,7 @@ src/
         ├── main.tsx      # React 入口
         ├── App.tsx       # 根组件：路由 + 主题切换 + 页面状态保持
         ├── store/index.ts  # Zustand store
+        ├── i18n/            # 国际化：zh.ts + en.ts 翻译字典，index.ts LocaleProvider + tc() 分类名翻译
         ├── styles/global.css  # 全局样式 + 明暗主题
         └── pages/
             ├── Dashboard.tsx        # 概览页
@@ -47,6 +48,7 @@ src/
             ├── Statistics.tsx        # 统计报表：饼图、柱状图、折线图、分类趋势、报告导出
             ├── CategoryManager.tsx   # 分类管理 + 数据备份恢复
             ├── AnnualReport.tsx      # 年度账单 + PDF 导出
+            ├── Investment.tsx       # 理财：本金/收益记录、汇总、趋势图
             ├── UserSelect.tsx        # 用户选择/创建/删除
             └── MiniAdd.tsx           # 迷你快捷记账窗口
 ```
@@ -70,6 +72,7 @@ Channel 命名规则：`模块:操作`，如 `transactions:create`、`stats:mont
 - **transactions** — `id`, `type`, `amount`, `currency`, `category_id`(FK), `date`, `note`, `created_at`, `updated_at`
 - **category_mappings** — `id`, `keyword`, `category_id`(FK), `created_at`（自定义导入分类映射）
 - **import_history** — `id`, `source`, `count`, `date_from`, `date_to`, `created_at`
+- **investment_records** — `id`, `type`(deposit/withdraw/profit), `amount`, `date`, `note`, `created_at`
 
 ### 多用户
 
@@ -93,6 +96,18 @@ Channel 命名规则：`模块:操作`，如 `transactions:create`、`stats:mont
 - **Excel**：主进程 exceljs 生成，带格式（表头样式、金额颜色、汇总行）
 - **月度 Excel 报告**：多 Sheet（收支概览、分类汇总、每日明细、交易记录）
 - **PDF 报告**：Electron `BrowserWindow.printToPDF()` + HTML 模板，天然支持中文
+
+### 国际化（i18n）
+
+自建轻量方案，无第三方 i18n 库：
+
+- `i18n/zh.ts` / `en.ts`：扁平 key-value 翻译字典，支持 `{0}` 占位符
+- `i18n/index.ts`：`LocaleContext` + `createT()` / `createTc()` 工厂函数
+- `t('key', ...args)`：翻译 UI 文本
+- `tc(name)`：翻译预设分类名（数据库存中文名，`categoryNameMap` 映射为英文短词如 Food、Transit、Shopping）
+- 语言状态存主进程 `config.json`（`locale` 字段），通过 `locale:get` / `locale:set` IPC 读写
+- Ant Design 的 ConfigProvider locale 随语言切换（zhCN / enUS）
+- 主进程对话框标题等通过 `getLocale()` 读取当前语言动态显示
 
 ### 页面状态保持
 
@@ -135,6 +150,8 @@ Channel 命名规则：`模块:操作`，如 `transactions:create`、`stats:mont
 - [x] 分类趋势对比（选定分类的跨月变化）
 - [x] 年度账单（收支汇总、月度趋势、分类排行、统计亮点）
 - [x] 数据导出（CSV + Excel + 月度 Excel 报告 + 月度/年度 PDF 报告）
+- [x] 理财管理（追加/取出本金、收益入账、汇总统计、本金趋势图）
 - [x] 数据备份与恢复
 - [x] 多用户支持（独立数据库、自动迁移）
+- [x] 中英文界面切换（持久化语言偏好）
 - [x] 系统托盘 + 明暗主题（跟随系统）

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Button, Table, Tag, Select, message, Card, Space, Alert, Checkbox, Tooltip, Input, Collapse, Popconfirm } from 'antd'
 import { UploadOutlined, ImportOutlined, HistoryOutlined, PlusOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons'
+import { useLocale } from '../i18n'
 
 export default function ImportTransaction(): JSX.Element {
+  const { t, tc } = useLocale()
   const [items, setItems] = useState<ImportPreviewItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
@@ -42,12 +44,12 @@ export default function ImportTransaction(): JSX.Element {
       })
       setItems(sorted)
       setParseInfo({
-        source: result.source === 'alipay' ? '支付宝' : '微信',
+        source: result.source,
         skipped: result.skipped,
         dateRange: result.dateRange
       })
     } catch (err: unknown) {
-      message.error(`解析失败: ${err instanceof Error ? err.message : '未知错误'}`)
+      message.error(t('import.parseFailed', err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setLoading(false)
     }
@@ -56,7 +58,7 @@ export default function ImportTransaction(): JSX.Element {
   const handleImport = async (): Promise<void> => {
     const selected = items.filter((item) => item.selected && item.category_id)
     if (selected.length === 0) {
-      message.warning('没有选中的记录可导入')
+      message.warning(t('import.noRecords'))
       return
     }
 
@@ -74,17 +76,17 @@ export default function ImportTransaction(): JSX.Element {
       )
       const dates = selected.map(i => i.date).sort()
       await window.api.saveImportHistory({
-        source: parseInfo?.source || '未知',
+        source: parseInfo?.source || 'Unknown',
         count,
         dateFrom: dates[0],
         dateTo: dates[dates.length - 1]
       })
-      message.success(`成功导入 ${count} 条记录`)
+      message.success(t('import.success', count))
       setItems([])
       setParseInfo(null)
       loadHistory()
     } catch (err: unknown) {
-      message.error(`导入失败: ${err instanceof Error ? err.message : '未知错误'}`)
+      message.error(t('import.importFailed', err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setImporting(false)
     }
@@ -124,17 +126,17 @@ export default function ImportTransaction(): JSX.Element {
         <Checkbox checked={items[index].selected} onChange={() => toggleSelect(index)} />
       )
     },
-    { title: '日期', dataIndex: 'date', width: 110 },
+    { title: t('common.date'), dataIndex: 'date', width: 110 },
     {
-      title: '类型',
+      title: t('common.type'),
       dataIndex: 'type',
-      width: 70,
-      render: (t: string) => (
-        <Tag color={t === 'income' ? 'green' : 'red'}>{t === 'income' ? '收入' : '支出'}</Tag>
+      width: 90,
+      render: (tp: string) => (
+        <Tag color={tp === 'income' ? 'green' : 'red'}>{tp === 'income' ? t('common.income') : t('common.expense')}</Tag>
       )
     },
     {
-      title: '金额',
+      title: t('common.amount'),
       dataIndex: 'amount',
       width: 100,
       render: (a: number, r: ImportPreviewItem) => {
@@ -147,7 +149,7 @@ export default function ImportTransaction(): JSX.Element {
       }
     },
     {
-      title: '分类',
+      title: t('common.category'),
       dataIndex: 'categoryMatch',
       width: 140,
       render: (_: unknown, record: ImportPreviewItem, index: number) => (
@@ -158,30 +160,30 @@ export default function ImportTransaction(): JSX.Element {
           onChange={(v) => updateCategory(index, v)}
           options={categories
             .filter((c) => c.type === record.type)
-            .map((c) => ({ label: c.name, value: c.id }))}
+            .map((c) => ({ label: tc(c.name), value: c.id }))}
         />
       )
     },
     {
-      title: '备注',
+      title: t('common.note'),
       dataIndex: 'note',
       ellipsis: true
     },
     {
-      title: '来源',
+      title: t('import.source'),
       dataIndex: 'source',
       width: 70,
       render: (s: string) => (
-        <Tag>{s === 'alipay' ? '支付宝' : '微信'}</Tag>
+        <Tag>{s === 'alipay' ? t('import.alipay') : t('import.wechat')}</Tag>
       )
     },
     {
-      title: '状态',
+      title: t('import.status'),
       width: 120,
       render: (_: unknown, record: ImportPreviewItem) => (
         record.duplicate ? (
-          <Tooltip title={record.duplicateNote}>
-            <Tag color="warning" style={{ cursor: 'pointer' }}>可能重复</Tag>
+          <Tooltip title={t('import.existingRecord', record.duplicateNote || '')}>
+            <Tag color="warning" style={{ cursor: 'pointer' }}>{t('import.maybeDuplicate')}</Tag>
           </Tooltip>
         ) : null
       )
@@ -191,7 +193,7 @@ export default function ImportTransaction(): JSX.Element {
   return (
     <div>
       <div className="page-header">
-        <h2>导入账单</h2>
+        <h2>{t('import.title')}</h2>
       </div>
 
       <Card size="small" style={{ marginBottom: 16 }}>
@@ -202,7 +204,7 @@ export default function ImportTransaction(): JSX.Element {
             onClick={handleSelectFile}
             loading={loading}
           >
-            选择账单文件
+            {t('import.selectFile')}
           </Button>
           {items.length > 0 && (
             <Button
@@ -212,7 +214,7 @@ export default function ImportTransaction(): JSX.Element {
               loading={importing}
               disabled={selectedCount === 0}
             >
-              确认导入 ({selectedCount} 条)
+              {t('import.confirmImport', selectedCount)}
             </Button>
           )}
         </Space>
@@ -223,25 +225,25 @@ export default function ImportTransaction(): JSX.Element {
         style={{ marginBottom: 16 }}
         items={[{
           key: 'mappings',
-          label: <><SettingOutlined /> 分类映射规则</>,
+          label: <><SettingOutlined /> {t('import.mappingRules')}</>,
           children: (
             <div>
               <Space style={{ marginBottom: 12 }}>
                 <Input
                   size="small"
-                  placeholder="关键词（如：星巴克）"
+                  placeholder={t('import.keyword')}
                   value={newKeyword}
                   onChange={(e) => setNewKeyword(e.target.value)}
                   style={{ width: 160 }}
                 />
                 <Select
                   size="small"
-                  placeholder="选择分类"
+                  placeholder={t('common.selectCategory')}
                   value={newCategoryId}
                   onChange={setNewCategoryId}
                   style={{ width: 140 }}
                   options={categories.map((c) => ({
-                    label: `${c.name}（${c.type === 'expense' ? '支出' : '收入'}）`,
+                    label: `${tc(c.name)}（${c.type === 'expense' ? t('common.expense') : t('common.income')}）`,
                     value: c.id
                   }))}
                 />
@@ -255,10 +257,10 @@ export default function ImportTransaction(): JSX.Element {
                     setNewKeyword('')
                     setNewCategoryId(null)
                     loadMappings()
-                    message.success('规则已添加')
+                    message.success(t('import.ruleAdded'))
                   }}
                 >
-                  添加
+                  {t('common.add')}
                 </Button>
               </Space>
               {mappings.length > 0 ? (
@@ -268,20 +270,20 @@ export default function ImportTransaction(): JSX.Element {
                   size="small"
                   pagination={false}
                   columns={[
-                    { title: '关键词', dataIndex: 'keyword', width: 180 },
+                    { title: t('import.keyword'), dataIndex: 'keyword', width: 180 },
                     {
-                      title: '映射分类', key: 'category', width: 160,
+                      title: t('import.mappedCategory'), key: 'category', width: 160,
                       render: (_: unknown, r: CategoryMapping) => (
-                        <Tag color={r.category_type === 'expense' ? 'red' : 'green'}>{r.category_name}</Tag>
+                        <Tag color={r.category_type === 'expense' ? 'red' : 'green'}>{tc(r.category_name)}</Tag>
                       )
                     },
                     {
-                      title: '操作', width: 80,
+                      title: t('common.operation'), width: 80,
                       render: (_: unknown, r: CategoryMapping) => (
-                        <Popconfirm title="删除此规则？" onConfirm={async () => {
+                        <Popconfirm title={t('import.deleteRule')} onConfirm={async () => {
                           await window.api.deleteMapping(r.id)
                           loadMappings()
-                        }} okText="删除" cancelText="取消">
+                        }} okText={t('common.delete')} cancelText={t('common.cancel')}>
                           <Button type="link" size="small" danger icon={<DeleteOutlined />} />
                         </Popconfirm>
                       )
@@ -290,7 +292,7 @@ export default function ImportTransaction(): JSX.Element {
                 />
               ) : (
                 <div style={{ color: '#999', fontSize: 13 }}>
-                  暂无自定义规则。添加关键词映射后，导入账单时会优先使用这些规则匹配分类。
+                  {t('import.noRules')}
                 </div>
               )}
             </div>
@@ -303,10 +305,7 @@ export default function ImportTransaction(): JSX.Element {
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message={
-            `${parseInfo.source}账单 (${parseInfo.dateRange[0]} ~ ${parseInfo.dateRange[1]})` +
-            ` | 待导入 ${items.length} 条，已自动过滤 ${parseInfo.skipped} 条（转账/不计收支/退款等）`
-          }
+          message={t('import.parseInfo', parseInfo.source === 'alipay' ? t('import.alipay') : t('import.wechat'), parseInfo.dateRange[0], parseInfo.dateRange[1], items.length, parseInfo.skipped)}
         />
       )}
 
@@ -322,7 +321,7 @@ export default function ImportTransaction(): JSX.Element {
       )}
 
       {history.length > 0 && (
-        <Card size="small" style={{ marginTop: 24 }} title={<><HistoryOutlined /> 导入记录</>}>
+        <Card size="small" style={{ marginTop: 24 }} title={<><HistoryOutlined /> {t('import.history')}</>}>
           <Table
             dataSource={history}
             rowKey="id"
@@ -330,16 +329,16 @@ export default function ImportTransaction(): JSX.Element {
             pagination={false}
             columns={[
               {
-                title: '导入时间', dataIndex: 'created_at', width: 180,
-                render: (t: string) => t.replace('T', ' ').substring(0, 19)
+                title: t('import.importTime'), dataIndex: 'created_at', width: 180,
+                render: (tp: string) => tp.replace('T', ' ').substring(0, 19)
               },
               {
-                title: '来源', dataIndex: 'source', width: 80,
-                render: (s: string) => <Tag>{s}</Tag>
+                title: t('import.source'), dataIndex: 'source', width: 80,
+                render: (s: string) => <Tag>{s === 'alipay' ? t('import.alipay') : s === 'wechat' ? t('import.wechat') : s}</Tag>
               },
-              { title: '条数', dataIndex: 'count', width: 80 },
+              { title: t('import.count'), dataIndex: 'count', width: 80 },
               {
-                title: '账单日期范围', key: 'range',
+                title: t('import.dateRange'), key: 'range',
                 render: (_: unknown, r: ImportHistoryRecord) => `${r.date_from} ~ ${r.date_to}`
               }
             ]}

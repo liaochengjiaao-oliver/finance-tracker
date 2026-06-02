@@ -3,8 +3,10 @@ import { Card, Col, Row, Table, Tag } from 'antd'
 import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useAppStore } from '../store'
+import { useLocale } from '../i18n'
 
 export default function Dashboard(): JSX.Element {
+  const { t, tc } = useLocale()
   const [stats, setStats] = useState<MonthlyStats | null>(null)
   const [recentList, setRecentList] = useState<Transaction[]>([])
   const currentPage = useAppStore((s) => s.currentPage)
@@ -41,22 +43,22 @@ export default function Dashboard(): JSX.Element {
 
   const columns = [
     {
-      title: '日期',
+      title: t('common.date'),
       dataIndex: 'date',
       width: 110,
       render: (d: string) => dayjs(d).format('MM-DD')
     },
     {
-      title: '类型',
+      title: t('common.type'),
       dataIndex: 'type',
-      width: 70,
-      render: (t: string) => (
-        <Tag color={t === 'income' ? 'green' : 'red'}>{t === 'income' ? '收入' : '支出'}</Tag>
+      width: 90,
+      render: (tp: string) => (
+        <Tag color={tp === 'income' ? 'green' : 'red'}>{tp === 'income' ? t('common.income') : t('common.expense')}</Tag>
       )
     },
-    { title: '分类', dataIndex: 'category_name', width: 100 },
+    { title: t('common.category'), dataIndex: 'category_name', width: 100, render: (n: string) => tc(n) },
     {
-      title: '金额',
+      title: t('common.amount'),
       dataIndex: 'amount',
       width: 120,
       render: (a: number, r: Transaction) => {
@@ -68,22 +70,22 @@ export default function Dashboard(): JSX.Element {
         )
       }
     },
-    { title: '备注', dataIndex: 'note', ellipsis: true }
+    { title: t('common.note'), dataIndex: 'note', ellipsis: true }
   ]
 
   return (
     <div>
-      <div className="page-header"><h2>概览</h2></div>
+      <div className="page-header"><h2>{t('dashboard.title')}</h2></div>
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={8}>
           <Card>
             <div className="stat-card">
-              <div className="label">本月收入</div>
+              <div className="label">{t('dashboard.monthIncome')}</div>
               <div className="value income">¥{(stats?.current.income ?? 0).toFixed(2)}</div>
               {incomeChange && (
                 <div className={`change ${incomeChange.isUp ? 'up' : 'down'}`}>
                   {incomeChange.isUp ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-                  {' '}较上月 {incomeChange.value}
+                  {' '}{t('dashboard.vsLastMonth')} {incomeChange.value}
                 </div>
               )}
             </div>
@@ -92,12 +94,12 @@ export default function Dashboard(): JSX.Element {
         <Col span={8}>
           <Card>
             <div className="stat-card">
-              <div className="label">本月支出</div>
+              <div className="label">{t('dashboard.monthExpense')}</div>
               <div className="value expense">¥{(stats?.current.expense ?? 0).toFixed(2)}</div>
               {expenseChange && (
                 <div className={`change ${expenseChange.isUp ? 'up' : 'down'}`}>
                   {expenseChange.isUp ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-                  {' '}较上月 {expenseChange.value}
+                  {' '}{t('dashboard.vsLastMonth')} {expenseChange.value}
                 </div>
               )}
             </div>
@@ -106,14 +108,14 @@ export default function Dashboard(): JSX.Element {
         <Col span={8}>
           <Card>
             <div className="stat-card">
-              <div className="label">本月结余</div>
+              <div className="label">{t('dashboard.monthBalance')}</div>
               <div className="value balance">¥{balance.toFixed(2)}</div>
             </div>
           </Card>
         </Col>
       </Row>
 
-      <Card title="近期记录" size="small">
+      <Card title={t('dashboard.recentRecords')} size="small">
         <Table
           dataSource={recentList}
           columns={columns}

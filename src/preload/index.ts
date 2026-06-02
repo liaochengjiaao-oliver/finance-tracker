@@ -55,6 +55,10 @@ const api = {
     startDate?: string; endDate?: string; type?: string; categoryIds?: number[]
   }) => ipcRenderer.invoke('transactions:export', filters),
 
+  // Locale
+  getLocale: () => ipcRenderer.invoke('locale:get'),
+  setLocale: (locale: string) => ipcRenderer.invoke('locale:set', locale),
+
   // Theme
   getTheme: () => ipcRenderer.invoke('theme:get'),
   onThemeChanged: (callback: (theme: 'dark' | 'light') => void) => {
@@ -84,6 +88,14 @@ const api = {
   createMapping: (data: { keyword: string; category_id: number }) =>
     ipcRenderer.invoke('mappings:create', data),
   deleteMapping: (id: number) => ipcRenderer.invoke('mappings:delete', id),
+
+  // Investment
+  createInvestment: (data: { type: string; amount: number; date: string; note: string }) =>
+    ipcRenderer.invoke('investment:create', data),
+  listInvestments: (filters: { limit?: number; offset?: number }) =>
+    ipcRenderer.invoke('investment:list', filters),
+  deleteInvestment: (id: number) => ipcRenderer.invoke('investment:delete', id),
+  getInvestmentSummary: () => ipcRenderer.invoke('investment:summary'),
 
   // Export enhanced
   exportExcel: (filters: {

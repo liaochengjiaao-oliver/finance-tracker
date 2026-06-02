@@ -16,6 +16,7 @@ export interface UserProfile {
 interface UserConfig {
   users: UserProfile[]
   lastUserId: string | null
+  locale?: string
 }
 
 function getBaseDir(): string {
@@ -183,6 +184,16 @@ export function getCurrentUser(): UserProfile | null {
   return config.users.find((u) => u.id === currentUserId) || null
 }
 
+export function getLocale(): string {
+  return readConfig().locale || 'zh'
+}
+
+export function setLocale(locale: string): void {
+  const config = readConfig()
+  config.locale = locale
+  writeConfig(config)
+}
+
 function createTables(): void {
   db.run(`
     CREATE TABLE IF NOT EXISTS categories (
@@ -233,6 +244,16 @@ function createTables(): void {
       count INTEGER NOT NULL,
       date_from TEXT NOT NULL,
       date_to TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS investment_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL CHECK(type IN ('deposit', 'withdraw', 'profit')),
+      amount REAL NOT NULL CHECK(amount > 0),
+      date TEXT NOT NULL,
+      note TEXT DEFAULT '',
       created_at TEXT NOT NULL
     )
   `)

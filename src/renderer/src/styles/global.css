@@ -312,6 +312,32 @@ html, body, #root {
   background: rgba(22, 119, 255, 0.06);
 }
 
+.sidebar-lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: 1px solid #d9d9d9;
+  cursor: pointer;
+  color: #595959;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.sidebar-lang-btn:hover {
+  color: #1677ff;
+  border-color: #1677ff;
+  background: rgba(22, 119, 255, 0.06);
+}
+
+.sidebar-lang-label {
+  font-size: 11px;
+  font-weight: 500;
+}
+
 /* ---- Dark theme ---- */
 .theme-dark .sidebar {
   background: #1a1a1a;
@@ -364,5 +390,16 @@ html, body, #root {
 
 .theme-dark .sidebar-switch-btn:hover {
   color: #4096ff;
+  background: rgba(64, 150, 255, 0.1);
+}
+
+.theme-dark .sidebar-lang-btn {
+  color: #a6a6a6;
+  border-color: #434343;
+}
+
+.theme-dark .sidebar-lang-btn:hover {
+  color: #4096ff;
+  border-color: #4096ff;
   background: rgba(64, 150, 255, 0.1);
 }

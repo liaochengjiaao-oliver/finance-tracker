@@ -43,6 +43,8 @@ interface Api {
   exportTransactions: (filters: {
     startDate?: string; endDate?: string; type?: string; categoryIds?: number[]
   }) => Promise<ExportRow[]>
+  getLocale: () => Promise<string>
+  setLocale: (locale: string) => Promise<void>
   getTheme: () => Promise<'dark' | 'light'>
   onThemeChanged: (callback: (theme: 'dark' | 'light') => void) => () => void
   closeMiniWindow: () => Promise<void>
@@ -58,6 +60,10 @@ interface Api {
   listMappings: () => Promise<CategoryMapping[]>
   createMapping: (data: { keyword: string; category_id: number }) => Promise<void>
   deleteMapping: (id: number) => Promise<void>
+  createInvestment: (data: { type: string; amount: number; date: string; note: string }) => Promise<number>
+  listInvestments: (filters: { limit?: number; offset?: number }) => Promise<InvestmentListResult>
+  deleteInvestment: (id: number) => Promise<void>
+  getInvestmentSummary: () => Promise<InvestmentSummary>
   exportExcel: (filters: {
     startDate?: string; endDate?: string; type?: string; categoryIds?: number[]
   }) => Promise<{ success: boolean; path?: string }>
@@ -171,6 +177,29 @@ interface BatchTransactionItem {
   category_id: number
   date: string
   note: string
+}
+
+interface InvestmentRecord {
+  id: number
+  type: 'deposit' | 'withdraw' | 'profit'
+  amount: number
+  date: string
+  note: string
+  created_at: string
+}
+
+interface InvestmentListResult {
+  data: InvestmentRecord[]
+  total: number
+}
+
+interface InvestmentSummary {
+  totalDeposit: number
+  totalWithdraw: number
+  totalProfit: number
+  currentPrincipal: number
+  totalAssets: number
+  monthly: { month: string; deposit: number; withdraw: number; profit: number; principal: number }[]
 }
 
 declare global {
