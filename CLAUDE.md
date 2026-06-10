@@ -96,6 +96,7 @@ Channel 命名规则：`模块:操作`，如 `transactions:create`、`stats:mont
 - **Excel**：主进程 exceljs 生成，带格式（表头样式、金额颜色、汇总行）
 - **月度 Excel 报告**：多 Sheet（收支概览、分类汇总、每日明细、交易记录）
 - **PDF 报告**：Electron `BrowserWindow.printToPDF()` + HTML 模板，天然支持中文
+- **年度理财 PDF**：理财收益/本金变动/月度明细，同样使用 printToPDF 生成
 
 ### 国际化（i18n）
 
@@ -150,7 +151,7 @@ Channel 命名规则：`模块:操作`，如 `transactions:create`、`stats:mont
 - [x] 分类趋势对比（选定分类的跨月变化）
 - [x] 年度账单（收支汇总、月度趋势、分类排行、统计亮点）
 - [x] 数据导出（CSV + Excel + 月度 Excel 报告 + 月度/年度 PDF 报告）
-- [x] 理财管理（追加/取出本金、收益入账、汇总统计、本金趋势图）
+- [x] 理财管理（追加/取出本金、收益入账、XIRR 年化收益率、本金趋势图、收益趋势图、年度汇总与 PDF 导出）
 - [x] 数据备份与恢复
 - [x] 多用户支持（独立数据库、自动迁移）
 - [x] 中英文界面切换（持久化语言偏好）
