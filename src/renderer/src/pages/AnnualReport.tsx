@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Card, Col, Row, DatePicker, Empty, Radio, Button, Space, message } from 'antd'
 import {
   ArrowUpOutlined, ArrowDownOutlined,
@@ -10,6 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts'
 import dayjs from 'dayjs'
+import { useAppStore } from '../store'
 import { useLocale } from '../i18n'
 
 const COLORS = [
@@ -25,6 +26,8 @@ export default function AnnualReport(): JSX.Element {
   const [year, setYear] = useState(dayjs())
   const [stats, setStats] = useState<AnnualStats | null>(null)
   const [categoryView, setCategoryView] = useState<'expense' | 'income'>('expense')
+  const currentPage = useAppStore((s) => s.currentPage)
+  const prevPage = useRef(currentPage)
 
   const MONTH_LABELS = locale === 'en' ? MONTH_LABELS_EN : MONTH_LABELS_ZH
 
@@ -34,6 +37,13 @@ export default function AnnualReport(): JSX.Element {
   }
 
   useEffect(() => { loadStats() }, [year])
+
+  useEffect(() => {
+    if (currentPage === 'annual' && prevPage.current !== 'annual') {
+      loadStats()
+    }
+    prevPage.current = currentPage
+  }, [currentPage])
 
   const balance = stats ? stats.current.income - stats.current.expense : 0
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Card, Col, Row, DatePicker, Radio, Empty, Select, Space, Dropdown, Button, message } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import {
@@ -7,6 +7,7 @@ import {
   BarChart, Bar
 } from 'recharts'
 import dayjs from 'dayjs'
+import { useAppStore } from '../store'
 import { useLocale } from '../i18n'
 
 const COLORS = [
@@ -25,6 +26,8 @@ export default function Statistics(): JSX.Element {
   const [trendCategoryId, setTrendCategoryId] = useState<number | undefined>(undefined)
   const [trendRange, setTrendRange] = useState<'6m' | '1y'>('6m')
   const [categoryTrendData, setCategoryTrendData] = useState<{ period: string; amount: number }[]>([])
+  const currentPage = useAppStore((s) => s.currentPage)
+  const prevPage = useRef(currentPage)
 
   useEffect(() => {
     window.api.getCategories().then(setCategories)
@@ -69,6 +72,15 @@ export default function Statistics(): JSX.Element {
 
   useEffect(() => { loadStats() }, [month])
   useEffect(() => { loadTrend() }, [month, granularity])
+
+  useEffect(() => {
+    if (currentPage === 'stats' && prevPage.current !== 'stats') {
+      loadStats()
+      loadTrend()
+      loadCategoryTrend()
+    }
+    prevPage.current = currentPage
+  }, [currentPage])
 
   const categoryData = stats?.byCategory
     .filter((c) => c.type === categoryView)

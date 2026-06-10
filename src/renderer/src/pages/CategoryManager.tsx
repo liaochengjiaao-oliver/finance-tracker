@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Card, Table, Button, Modal, Form, Input, Radio, Popconfirm, message, Space, Tag } from 'antd'
 import {
   PlusOutlined, EditOutlined, DeleteOutlined,
   CloudDownloadOutlined, CloudUploadOutlined
 } from '@ant-design/icons'
+import { useAppStore } from '../store'
 import { useLocale } from '../i18n'
 
 export default function CategoryManager(): JSX.Element {
@@ -12,6 +13,8 @@ export default function CategoryManager(): JSX.Element {
   const [modal, setModal] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [form] = Form.useForm()
+  const currentPage = useAppStore((s) => s.currentPage)
+  const prevPage = useRef(currentPage)
 
   const loadCategories = async (): Promise<void> => {
     const list = await window.api.getCategories()
@@ -19,6 +22,13 @@ export default function CategoryManager(): JSX.Element {
   }
 
   useEffect(() => { loadCategories() }, [])
+
+  useEffect(() => {
+    if (currentPage === 'categories' && prevPage.current !== 'categories') {
+      loadCategories()
+    }
+    prevPage.current = currentPage
+  }, [currentPage])
 
   const handleAdd = (): void => {
     setEditId(null)
