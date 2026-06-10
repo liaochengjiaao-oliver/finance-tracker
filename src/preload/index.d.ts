@@ -64,12 +64,14 @@ interface Api {
   listInvestments: (filters: { limit?: number; offset?: number }) => Promise<InvestmentListResult>
   deleteInvestment: (id: number) => Promise<void>
   getInvestmentSummary: () => Promise<InvestmentSummary>
+  getInvestmentAnnual: (year: number) => Promise<InvestmentAnnualStats>
   exportExcel: (filters: {
     startDate?: string; endDate?: string; type?: string; categoryIds?: number[]
   }) => Promise<{ success: boolean; path?: string }>
   exportMonthlyReport: (year: number, month: number) => Promise<{ success: boolean; path?: string }>
   exportMonthlyPdf: (year: number, month: number) => Promise<{ success: boolean; path?: string }>
   exportAnnualPdf: (year: number) => Promise<{ success: boolean; path?: string }>
+  exportInvestmentAnnualPdf: (year: number) => Promise<{ success: boolean; path?: string }>
 }
 
 interface Category {
@@ -199,7 +201,19 @@ interface InvestmentSummary {
   totalProfit: number
   currentPrincipal: number
   totalAssets: number
-  monthly: { month: string; deposit: number; withdraw: number; profit: number; principal: number }[]
+  xirrRate: number | null
+  monthly: { month: string; deposit: number; withdraw: number; profit: number; principal: number; cumulativeProfit: number }[]
+}
+
+interface InvestmentAnnualStats {
+  yearProfit: number
+  yearDeposit: number
+  yearWithdraw: number
+  prevYearProfit: number
+  principalAtYearStart: number
+  principalAtYearEnd: number
+  xirrRate: number | null
+  monthly: { month: string; deposit: number; withdraw: number; profit: number }[]
 }
 
 declare global {

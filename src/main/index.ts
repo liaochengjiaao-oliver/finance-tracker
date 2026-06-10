@@ -1180,6 +1180,53 @@ function registerIpcHandlers(): void {
   })
 
   // --- Investment ---
+
+  function calculateXirr(
+    cashFlows: Array<{ amount: number; years: number }>
+  ): number | null {
+    const hasNegative = cashFlows.some((cf) => cf.amount < 0)
+    const hasPositive = cashFlows.some((cf) => cf.amount > 0)
+    if (!hasNegative || !hasPositive) return null
+
+    const maxYears = Math.max(...cashFlows.map((cf) => cf.years))
+    if (maxYears < 7 / 365) return null
+
+    const npv = (rate: number): number =>
+      cashFlows.reduce((sum, cf) => sum + cf.amount / Math.pow(1 + rate, cf.years), 0)
+
+    const dnpv = (rate: number): number =>
+      cashFlows.reduce(
+        (sum, cf) => sum - (cf.years * cf.amount) / Math.pow(1 + rate, cf.years + 1),
+        0
+      )
+
+    const guesses = [0.1, 0.0, -0.5, 0.5, 1.0, -0.9]
+
+    for (const guess of guesses) {
+      let rate = guess
+      let converged = false
+
+      for (let i = 0; i < 200; i++) {
+        const fx = npv(rate)
+        const dfx = dnpv(rate)
+        if (Math.abs(dfx) < 1e-14) break
+        const step = fx / dfx
+        rate = rate - step
+        if (rate <= -1) rate = -0.99
+        if (Math.abs(step) < 1e-10) {
+          converged = true
+          break
+        }
+      }
+
+      if (converged && Math.abs(npv(rate)) < 0.01 && rate > -1) {
+        return rate
+      }
+    }
+
+    return null
+  }
+
   ipcMain.handle('investment:create', (_event, data: {
     type: string; amount: number; date: string; note: string
   }) => {
@@ -1225,6 +1272,33 @@ function registerIpcHandlers(): void {
     const currentPrincipal = totalDeposit - totalWithdraw
     const totalAssets = currentPrincipal + totalProfit
 
+    const allRecords = queryAll(
+      'SELECT type, amount, date FROM investment_records ORDER BY date ASC'
+    )
+
+    let xirrRate: number | null = null
+    if (allRecords.length > 0) {
+      const msPerDay = 24 * 60 * 60 * 1000
+      const baseDate = new Date((allRecords[0].date as string) + 'T00:00:00')
+      const cashFlows: Array<{ amount: number; years: number }> = []
+
+      for (const record of allRecords) {
+        const date = new Date((record.date as string) + 'T00:00:00')
+        const years = (date.getTime() - baseDate.getTime()) / (msPerDay * 365)
+        const amount = record.type === 'deposit' ? -(record.amount as number) : (record.amount as number)
+        cashFlows.push({ amount, years })
+      }
+
+      if (currentPrincipal > 0) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const years = (today.getTime() - baseDate.getTime()) / (msPerDay * 365)
+        cashFlows.push({ amount: currentPrincipal, years })
+      }
+
+      xirrRate = calculateXirr(cashFlows)
+    }
+
     const monthlyRows = queryAll(`
       SELECT strftime('%Y-%m', date) as month,
         COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) as deposit,
@@ -1236,18 +1310,269 @@ function registerIpcHandlers(): void {
     `)
 
     let runningPrincipal = 0
+    let runningProfit = 0
     const monthly = monthlyRows.map((r) => {
       runningPrincipal += (r.deposit as number) - (r.withdraw as number)
+      runningProfit += (r.profit as number)
       return {
         month: r.month as string,
         deposit: r.deposit as number,
         withdraw: r.withdraw as number,
         profit: r.profit as number,
-        principal: runningPrincipal
+        principal: runningPrincipal,
+        cumulativeProfit: runningProfit
       }
     })
 
-    return { totalDeposit, totalWithdraw, totalProfit, currentPrincipal, totalAssets, monthly }
+    return { totalDeposit, totalWithdraw, totalProfit, currentPrincipal, totalAssets, xirrRate, monthly }
+  })
+
+  ipcMain.handle('investment:annual', (_event, year: number) => {
+    const startDate = `${year}-01-01`
+    const endDate = `${year + 1}-01-01`
+    const prevStartDate = `${year - 1}-01-01`
+
+    const yearRow = queryOne(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) as deposit,
+        COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as withdraw,
+        COALESCE(SUM(CASE WHEN type = 'profit' THEN amount ELSE 0 END), 0) as profit
+      FROM investment_records WHERE date >= ? AND date < ?`,
+      [startDate, endDate]
+    )
+
+    const prevProfitRow = queryOne(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM investment_records WHERE type = 'profit' AND date >= ? AND date < ?",
+      [prevStartDate, startDate]
+    )
+
+    const principalBeforeRow = queryOne(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) -
+        COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as principal
+      FROM investment_records WHERE date < ?`,
+      [startDate]
+    )
+
+    const principalEndRow = queryOne(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) -
+        COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as principal
+      FROM investment_records WHERE date < ?`,
+      [endDate]
+    )
+
+    const yearDeposit = (yearRow?.deposit as number) || 0
+    const yearWithdraw = (yearRow?.withdraw as number) || 0
+    const yearProfit = (yearRow?.profit as number) || 0
+    const prevYearProfit = (prevProfitRow?.total as number) || 0
+    const principalAtYearStart = (principalBeforeRow?.principal as number) || 0
+    const principalAtYearEnd = (principalEndRow?.principal as number) || 0
+
+    const yearRecords = queryAll(
+      'SELECT type, amount, date FROM investment_records WHERE date >= ? AND date < ? ORDER BY date ASC',
+      [startDate, endDate]
+    )
+
+    let yearXirr: number | null = null
+    if (yearRecords.length > 0 || principalAtYearStart > 0) {
+      const msPerDay = 24 * 60 * 60 * 1000
+      const baseDate = new Date(startDate + 'T00:00:00')
+      const cashFlows: Array<{ amount: number; years: number }> = []
+
+      if (principalAtYearStart > 0) {
+        cashFlows.push({ amount: -principalAtYearStart, years: 0 })
+      }
+
+      for (const record of yearRecords) {
+        const date = new Date((record.date as string) + 'T00:00:00')
+        const years = (date.getTime() - baseDate.getTime()) / (msPerDay * 365)
+        const amount = record.type === 'deposit' ? -(record.amount as number) : (record.amount as number)
+        cashFlows.push({ amount, years })
+      }
+
+      const now = new Date()
+      const yearEndDate = new Date(`${year + 1}-01-01T00:00:00`)
+      const terminalDate = now < yearEndDate ? now : yearEndDate
+      terminalDate.setHours(0, 0, 0, 0)
+      const terminalYears = (terminalDate.getTime() - baseDate.getTime()) / (msPerDay * 365)
+      const terminalPrincipal = now < yearEndDate ? principalAtYearEnd : principalAtYearEnd
+      if (terminalPrincipal > 0) {
+        cashFlows.push({ amount: terminalPrincipal, years: terminalYears })
+      }
+
+      yearXirr = calculateXirr(cashFlows)
+    }
+
+    const monthlyRows = queryAll(
+      `SELECT strftime('%Y-%m', date) as month,
+        COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) as deposit,
+        COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as withdraw,
+        COALESCE(SUM(CASE WHEN type = 'profit' THEN amount ELSE 0 END), 0) as profit
+      FROM investment_records
+      WHERE date >= ? AND date < ?
+      GROUP BY strftime('%Y-%m', date)
+      ORDER BY month ASC`,
+      [startDate, endDate]
+    )
+
+    return {
+      yearProfit,
+      yearDeposit,
+      yearWithdraw,
+      prevYearProfit,
+      principalAtYearStart,
+      principalAtYearEnd,
+      xirrRate: yearXirr,
+      monthly: monthlyRows.map((r) => ({
+        month: r.month as string,
+        deposit: r.deposit as number,
+        withdraw: r.withdraw as number,
+        profit: r.profit as number
+      }))
+    }
+  })
+
+  ipcMain.handle('export:investment-annual-pdf', async (_event, year: number) => {
+    const startDate = `${year}-01-01`
+    const endDate = `${year + 1}-01-01`
+    const prevStartDate = `${year - 1}-01-01`
+
+    const yearRow = queryOne(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) as deposit,
+        COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as withdraw,
+        COALESCE(SUM(CASE WHEN type = 'profit' THEN amount ELSE 0 END), 0) as profit
+      FROM investment_records WHERE date >= ? AND date < ?`,
+      [startDate, endDate]
+    )
+
+    const prevProfitRow = queryOne(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM investment_records WHERE type = 'profit' AND date >= ? AND date < ?",
+      [prevStartDate, startDate]
+    )
+
+    const principalBeforeRow = queryOne(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) -
+        COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as principal
+      FROM investment_records WHERE date < ?`,
+      [startDate]
+    )
+
+    const principalEndRow = queryOne(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) -
+        COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as principal
+      FROM investment_records WHERE date < ?`,
+      [endDate]
+    )
+
+    const yearDeposit = (yearRow?.deposit as number) || 0
+    const yearWithdraw = (yearRow?.withdraw as number) || 0
+    const yearProfit = (yearRow?.profit as number) || 0
+    const prevYearProfit = (prevProfitRow?.total as number) || 0
+    const principalStart = (principalBeforeRow?.principal as number) || 0
+    const principalEnd = (principalEndRow?.principal as number) || 0
+    const principalChange = principalEnd - principalStart
+
+    const locale = getLocale()
+    const saveResult = await dialog.showSaveDialog({
+      title: locale === 'en' ? 'Export Investment Annual PDF' : '导出年度理财报告',
+      defaultPath: locale === 'en' ? `Investment_Report_${year}.pdf` : `年度理财报告_${year}年.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    })
+    if (saveResult.canceled || !saveResult.filePath) return { success: false }
+
+    const monthlyRows = queryAll(
+      `SELECT strftime('%Y-%m', date) as month,
+        COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) as deposit,
+        COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as withdraw,
+        COALESCE(SUM(CASE WHEN type = 'profit' THEN amount ELSE 0 END), 0) as profit
+      FROM investment_records
+      WHERE date >= ? AND date < ?
+      GROUP BY strftime('%Y-%m', date)
+      ORDER BY month ASC`,
+      [startDate, endDate]
+    )
+
+    const monthLabels = locale === 'en'
+      ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      : ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+
+    const monthlyData = monthLabels.map((label, i) => {
+      const key = `${year}-${String(i + 1).padStart(2, '0')}`
+      const found = monthlyRows.find((m: Record<string, unknown>) => m.month === key)
+      return {
+        label,
+        deposit: ((found?.deposit as number) || 0),
+        withdraw: ((found?.withdraw as number) || 0),
+        profit: ((found?.profit as number) || 0)
+      }
+    })
+
+    const monthlyTableRows = monthlyData.map((m) =>
+      `<tr><td>${m.label}</td><td style="text-align:right;color:#1677ff">¥${m.deposit.toFixed(2)}</td><td style="text-align:right;color:#ff4d4f">¥${m.withdraw.toFixed(2)}</td><td style="text-align:right;color:#00B050">¥${m.profit.toFixed(2)}</td></tr>`
+    ).join('')
+
+    const yoyText = prevYearProfit > 0
+      ? `${((yearProfit - prevYearProfit) / prevYearProfit * 100).toFixed(1)}%`
+      : (locale === 'en' ? 'N/A' : '无数据')
+
+    const labelTitle = locale === 'en' ? `${year} Investment Report` : `${year}年 年度理财报告`
+    const labelProfit = locale === 'en' ? 'Annual Profit' : '年度收益'
+    const labelDeposit = locale === 'en' ? 'Total Deposits' : '追加本金'
+    const labelWithdraw = locale === 'en' ? 'Total Withdrawals' : '取出本金'
+    const labelPrincipalChange = locale === 'en' ? 'Principal Change' : '本金变动'
+    const labelPrincipalStart = locale === 'en' ? 'Opening Principal' : '年初本金'
+    const labelPrincipalEnd = locale === 'en' ? 'Closing Principal' : '年末本金'
+    const labelYoy = locale === 'en' ? 'YoY Profit Change' : '收益同比'
+    const labelMonth = locale === 'en' ? 'Month' : '月份'
+    const labelMonthly = locale === 'en' ? 'Monthly Breakdown' : '月度明细'
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      body { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif; padding: 40px; color: #333; }
+      h1 { text-align: center; font-size: 22px; margin-bottom: 30px; }
+      h2 { font-size: 16px; border-bottom: 2px solid #4472C4; padding-bottom: 6px; margin-top: 30px; }
+      table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+      th { background: #4472C4; color: white; padding: 8px 12px; text-align: left; }
+      td { padding: 6px 12px; border-bottom: 1px solid #eee; }
+      .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 20px 0; }
+      .summary-box { background: #f5f5f5; border-radius: 8px; padding: 16px; text-align: center; }
+      .summary-box .label { font-size: 13px; color: #888; }
+      .summary-box .value { font-size: 24px; font-weight: bold; margin-top: 4px; }
+      .income { color: #00B050; } .expense { color: #FF0000; } .primary { color: #1677ff; }
+      .highlights { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 20px 0; }
+      .highlight-box { background: #f0f5ff; border-radius: 8px; padding: 12px; text-align: center; }
+      .highlight-box .hl-value { font-size: 20px; font-weight: bold; color: #4472C4; }
+      .highlight-box .hl-label { font-size: 12px; color: #888; margin-top: 4px; }
+    </style></head><body>
+      <h1>${labelTitle}</h1>
+      <div class="summary-grid">
+        <div class="summary-box"><div class="label">${labelProfit}</div><div class="value income">¥${yearProfit.toFixed(2)}</div></div>
+        <div class="summary-box"><div class="label">${labelPrincipalChange}</div><div class="value primary">${principalChange >= 0 ? '+' : ''}¥${principalChange.toFixed(2)}</div></div>
+        <div class="summary-box"><div class="label">${labelYoy}</div><div class="value">${yoyText}</div></div>
+      </div>
+      <div class="highlights">
+        <div class="highlight-box"><div class="hl-value">¥${yearDeposit.toFixed(2)}</div><div class="hl-label">${labelDeposit}</div></div>
+        <div class="highlight-box"><div class="hl-value">¥${yearWithdraw.toFixed(2)}</div><div class="hl-label">${labelWithdraw}</div></div>
+        <div class="highlight-box"><div class="hl-value">¥${principalStart.toFixed(2)} → ¥${principalEnd.toFixed(2)}</div><div class="hl-label">${labelPrincipalStart} → ${labelPrincipalEnd}</div></div>
+      </div>
+      <h2>${labelMonthly}</h2>
+      <table>
+        <tr><th>${labelMonth}</th><th style="text-align:right">${labelDeposit}</th><th style="text-align:right">${labelWithdraw}</th><th style="text-align:right">${labelProfit}</th></tr>
+        ${monthlyTableRows}
+      </table>
+    </body></html>`
+
+    const pdfWindow = new BrowserWindow({ show: false, width: 800, height: 600 })
+    await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+    const pdfBuffer = await pdfWindow.webContents.printToPDF({ printBackground: true })
+    pdfWindow.destroy()
+
+    const { writeFileSync } = require('fs')
+    writeFileSync(saveResult.filePath, pdfBuffer)
+    return { success: true, path: saveResult.filePath }
   })
 }
 

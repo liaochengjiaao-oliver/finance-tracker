@@ -96,6 +96,7 @@ const api = {
     ipcRenderer.invoke('investment:list', filters),
   deleteInvestment: (id: number) => ipcRenderer.invoke('investment:delete', id),
   getInvestmentSummary: () => ipcRenderer.invoke('investment:summary'),
+  getInvestmentAnnual: (year: number) => ipcRenderer.invoke('investment:annual', year),
 
   // Export enhanced
   exportExcel: (filters: {
@@ -105,7 +106,8 @@ const api = {
     ipcRenderer.invoke('export:monthly-report', year, month),
   exportMonthlyPdf: (year: number, month: number) =>
     ipcRenderer.invoke('export:monthly-pdf', year, month),
-  exportAnnualPdf: (year: number) => ipcRenderer.invoke('export:annual-pdf', year)
+  exportAnnualPdf: (year: number) => ipcRenderer.invoke('export:annual-pdf', year),
+  exportInvestmentAnnualPdf: (year: number) => ipcRenderer.invoke('export:investment-annual-pdf', year)
 }
 
 contextBridge.exposeInMainWorld('api', api)
